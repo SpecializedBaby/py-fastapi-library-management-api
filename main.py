@@ -1,10 +1,10 @@
-from typing import Annotated
+from typing import Annotated, Type
 
-from fastapi import FastAPI, Query, HTTPException
-from sqlmodel import select
+from fastapi import FastAPI, Query, HTTPException, Depends
+from sqlmodel import select, Session
 
-from db.database import create_db_and_tables, SessionDep
-from db.models import Author
+from db.database import create_db_and_tables, get_session
+from db.models import Author, Book
 
 app = FastAPI()
 
@@ -15,7 +15,7 @@ def on_startup():
 
 
 @app.post("/authors/")
-def create_author(author: Author, session: SessionDep) -> Author:
+def create_author(author: Author, session: Session = Depends(get_session)) -> Author:
     session.add(author)
     session.commit()
     session.refresh(author)
@@ -24,7 +24,7 @@ def create_author(author: Author, session: SessionDep) -> Author:
 
 @app.get("/authors/")
 def read_authors(
-    session: SessionDep,
+    session: Session = Depends(get_session),
     skip: int = 0,
     limit: Annotated[int, Query(le=100)] = 100,
 ) -> list[Author]:
@@ -32,8 +32,11 @@ def read_authors(
     return authors
 
 
-@app.get("/authors/{author_id}")
-def read_author(author_id: int, session: SessionDep) -> Author:
+@app.get("/authors/{author_id}", response_model=Author)
+def read_author(
+        author_id: str,
+        session: Session = Depends(get_session)
+) -> Type[Author]:
     author = session.get(Author, author_id)
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
@@ -41,10 +44,40 @@ def read_author(author_id: int, session: SessionDep) -> Author:
 
 
 @app.delete("/authors/{author_id}")
-def delete_author(author_id: int, session: SessionDep):
+def delete_author(
+        author_id: str,
+        session: Session = Depends(get_session)
+) -> dict:
     author = session.get(Author, author_id)
     if not author:
         raise HTTPException(status_code=404, detail="Author not found")
     session.delete(author)
     session.commit()
     return {"ok": True}
+
+
+@app.post("/books/")
+def create_book(book: Book, session: Session = Depends(get_session)) -> Book:
+    session.add(book)
+    session.commit()
+    session.refresh(book)
+    return book
+
+
+@app.get("/books/")
+def read_books(
+    session: Session = Depends(get_session),
+    skip: int = 0,
+    limit: Annotated[int, Query(le=100)] = 100,
+) -> list[Book]:
+    books = session.exec(select(Author).offset(skip).limit(limit)).all()
+    return books
+
+
+@app.get("/books/{author_id}", response_model=list[Book])
+def get_books_of_author(
+        author_id: str,
+        session: Session = Depends(get_session),
+) -> list[Book] | None:
+    statement = (select(Book).join(Book.author).where(author_id=author_id))
+    return session.exec(statement).all() or None
