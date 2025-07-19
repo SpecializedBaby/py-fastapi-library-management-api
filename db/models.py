@@ -1,31 +1,22 @@
-from datetime import datetime
+from datetime import date
 from typing import List
 
-from sqlalchemy import String, ForeignKey, DateTime
-from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
+from sqlmodel import Field, SQLModel, Relationship
 
 
-class Base(DeclarativeBase):
-    pass
+class Author(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    name: str = Field(max_length=200, index=True)
+    bio: str
+
+    books: List["Book"] = Relationship(back_populates="author", cascade_delete=True)
 
 
-class Author(Base):
-    __tablename__ = "author"
+class Book(SQLModel, table=True):
+    id: int | None = Field(default=None, primary_key=True)
+    title: str = Field(max_length=255, index=True)
+    summary: str = Field(max_length=200)
+    publication_date: date
+    author_id: int = Field(foreign_key="author.id")
 
-    id: Mapped[int] = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
-    bio: Mapped[str]
-
-    books: Mapped[List["Book"]] = relationship(back_populates="author", cascade="all, delete-orphan")
-
-
-class Book(Base):
-    __tablename__ = "book"
-
-    id: Mapped[int] = mapped_column(primary_key=True)
-    title: Mapped[str] = mapped_column(String(255), index=True)
-    summary: Mapped[str]
-    publication_date: Mapped[datetime] = mapped_column(DateTime(), default=datetime.utcnow)
-    author_id: Mapped[int] = mapped_column(ForeignKey("author.id"))
-
-    author: Mapped["Author"] = relationship(back_populates="books")
+    author: "Author" = Relationship(back_populates="books")

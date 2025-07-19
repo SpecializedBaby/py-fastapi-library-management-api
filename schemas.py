@@ -18,6 +18,7 @@ class BookBaseSchema(BaseModel):
     title: str
     summary: str
     author_id: int
+    publication_date: str
 
 
 class BookReadSchema(BookBaseSchema):

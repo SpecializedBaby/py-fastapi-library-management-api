@@ -1,4 +1,5 @@
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, List, Type
 
 from fastapi import Query
 from sqlalchemy import select
@@ -14,7 +15,8 @@ def get_author_by_name(session: Session, name: str):
 
 
 def get_author_by_id(session: Session, author_id: int):
-    return session.get(Author, author_id)
+    statement = select(Author).where(Author.id == author_id)
+    return session.exec(statement).first()
 
 
 def create_author(session: Session, author_data: schemas.AuthorBaseSchema):
@@ -29,15 +31,16 @@ def get_list_author(
         session: Session,
         skip: int,
         limit: int,
-) -> list[Author]:
-    return session.query(models.Author).offset(skip).limit(limit)
+) -> list[Type[Author]]:
+    return session.query(models.Author).offset(skip).limit(limit).all()
 
 
 def create_book(session: Session, book: schemas.BookBaseSchema):
     book = Book(
         title=book.title,
         summary=book.summary,
-        author_id=book.author_id
+        author_id=book.author_id,
+        publication_date=datetime.strptime(book.publication_date, "%Y-%m-%d").date(),
     )
     session.add(book)
     session.commit()
